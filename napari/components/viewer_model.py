@@ -926,6 +926,124 @@ class ViewerModel(KeymapMixin):
         self.add_layer(layer)
         return layer
 
+    def add_swc(
+        self,
+        swc_path,
+        spacing,
+        origin=np.array([0, 0, 0]),
+        *,
+        bounding_box=None,
+        edge_width=1,
+        edge_color='black',
+        face_color='white',
+        z_index=0,
+        name=None,
+        metadata=None,
+        scale=None,
+        translate=None,
+        opacity=0.7,
+        blending='translucent',
+        visible=True,
+    ):
+        """Add a neuron from a swc file as a path shape layer to the layers list.
+
+        Parameters
+        ----------
+        swc_path : str
+            String representing the path to the swc file. Coordinates in swc
+            file are assumed to be in spatial units.
+        spacing : :class:`numpy.array`
+            Conversion factor (spatial units/voxel). Assumed to be
+            np.array([x,y,z])
+        origin : :class:`numpy.array`
+            Origin of the spatial coordinate. Default is (0,0,0). Assumed to be
+            np.array([x,y,z])
+        bounding_box : tuple or list or None
+            Defines a bounding box around a sub-region around the neuron.
+            Length 2 tuple/list. First element is the coordinate of one corner
+            (inclusive) and second element is the coordinate of the opposite
+            corner (exclusive). Both coordinates are numpy.array([x,y,z])in
+            voxel units. If bounding_box=None then the entire neuron will be
+            added.
+        edge_width : float or list
+            Thickness of lines and edges. If a list is supplied it must be the
+            same length as the length of `data` and each element will be
+            applied to each shape otherwise the same value will be used for all
+            shapes.
+        edge_color : str or list
+            If string can be any color name recognized by vispy or hex value if
+            starting with `#`. If array-like must be 1-dimensional array with 3
+            or 4 elements. If a list is supplied it must be the same length as
+            the length of `data` and each element will be applied to each shape
+            otherwise the same value will be used for all shapes.
+        face_color : str or list
+            If string can be any color name recognized by vispy or hex value if
+            starting with `#`. If array-like must be 1-dimensional array with 3
+            or 4 elements. If a list is supplied it must be the same length as
+            the length of `data` and each element will be applied to each shape
+            otherwise the same value will be used for all shapes.
+        z_index : int or list
+            Specifier of z order priority. Shapes with higher z order are
+            displayed ontop of others. If a list is supplied it must be the
+            same length as the length of `data` and each element will be
+            applied to each shape otherwise the same value will be used for all
+            shapes.
+        name : str
+            Name of the layer.
+        metadata : dict
+            Layer metadata.
+        scale : tuple of float
+            Scale factors for the layer.
+        translate : tuple of float
+            Translation values for the layer.
+        opacity : float or list
+            Opacity of the layer visual, between 0.0 and 1.0.
+        blending : str
+            One of a list of preset blending modes that determines how RGB and
+            alpha values of the layer visual get mixed. Allowed values are
+            {'opaque', 'translucent', and 'additive'}.
+        visible : bool
+            Whether the layer visual is currently being displayed.
+        Returns
+        -------
+        layer : :class:`napari.layers.Shapes`
+            The newly-created shapes layer.
+        """
+
+        # read in the swc file into a dataframe
+        df = layers.swc.read_swc(swc_path=swc_path)
+        # convert from spatial to voxel coordinates
+        df_voxel = layers.swc.swc_to_voxel(
+            df=df, spacing=spacing, origin=origin
+        )
+        # convert from dataframe to networkx graph
+        G = layers.swc.df_to_graph(df_voxel=df_voxel)
+
+        # get sub-neuron if bounding_box is specified
+        if bounding_box is not None:
+            G = layers.swc.get_sub_neuron(G, bounding_box)
+        # convert from graph to list of path shape data
+        paths = layers.swc.graph_to_paths(G=G)
+        # add data as path shape
+        shape_type = 'path'
+        layer = self.add_shapes(
+            data=paths,
+            shape_type=shape_type,
+            edge_width=edge_width,
+            edge_color=edge_color,
+            face_color=face_color,
+            z_index=z_index,
+            name=name,
+            metadata=metadata,
+            scale=scale,
+            translate=translate,
+            opacity=opacity,
+            blending=blending,
+            visible=visible,
+        )
+
+        return layer
+
     def add_vectors(
         self,
         data,
